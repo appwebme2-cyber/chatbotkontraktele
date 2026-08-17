@@ -35,32 +35,65 @@ SCHEMA_CONTEXT = """
 Database PostgreSQL untuk sistem manajemen kontrak kilang minyak. Berikut skema tabel:
 
 TABEL: profiles
-Kolom: id, email, full_name, role (admin/pic/user), password_hash, created_at, updated_at, is_active, id_vendor
+Kolom: id, email, full_name, role (admin/pic/user/vendor/external), password_hash, created_at, updated_at, is_active, id_vendor
 
 TABEL: vendor
 Kolom: id_vendor, nama_vendor, npwp, alamat, pic_nama, pic_kontak, status_vendor (Active/Inactive/Blacklist), score, created_at, updated_at
 
+TABEL: direksi_pekerjaan
+Kolom: id_direksi_pekerjaan, nama, jabatan (Manager Maintenance Execution I/Manager Maintenance Execution II/Pengawas Pekerjaan), sub_area (SH Maintenance Area 5/SH Maintenance Area 6/SH Maintenance Area 7/Workshop), created_at, updated_at
+Catatan: Tabel master nama & jabatan direksi/pengawas. Kolom direksi_pekerjaan di tabel kontrak berisi NAMA ORANG (string bebas), bukan kode area seperti MA5/MA6.
+
+TABEL: program_kerja
+Kolom: id_program_kerja, nama (Rutin/Non Rutin/TA/OH), created_at, updated_at
+
+TABEL: planner
+Kolom: id_planner, nama (P&S/OH/TA), created_at, updated_at
+
 TABEL: kontrak
-Kolom: id_kontrak, id_vendor, judul_kontrak, no_dokumen_kontrak, no_po_pr, direksi_pekerjaan,
-  tipe_kontrak (Lumpsum/Unit Price/TSA/LTSA/TSA-LTSA), status_kontrak (Pre-KOM/Aktif/Selesai/Terminated),
+Kolom: id_kontrak, id_vendor, judul_kontrak, no_dokumen_kontrak, no_po_pr, no_irkap, direksi_pekerjaan,
+  program_kerja, planner, kbo_bagian,
+  tipe_kontrak (Lumpsum/Unit Price/TSA/LTSA/TSA/LTSA), status_kontrak (Pre-KOM/Aktif/Active/Selesai/Completed/Terminated),
   tanggal_spb_diterima, tanggal_terima_dokumen, tanggal_maksimal_kom, tanggal_mulai, tanggal_selesai,
   sla_kom_hari, estimasi_tanggal_kom, tanggal_kom, kom_terlambat, nilai_awal, durasi_kontrak_hari,
   progress_plan, progress_actual, aktivitas_saat_ini, kendala, disiplin, tkdn_percentage, tanggal_lkp,
+  tanggal_mpl, tanggal_mpa, masa_pemeliharaan_hari,
   has_amendment, no_amandemen, tanggal_amandemen, jenis_amandemen, nilai_kontrak_baru, durasi_amandemen,
-  tanggal_mulai_baru, tanggal_selesai_baru, alasan_perubahan, tanggal_mpl, tanggal_mpa,
-  masa_pemeliharaan_hari, created_at, updated_at
+  tanggal_mulai_baru, tanggal_selesai_baru, alasan_perubahan,
+  contract_documents (JSON), amendment_documents (JSON), s_curve_data (JSON),
+  created_at, updated_at
 
 TABEL: amandemen_kontrak
 Kolom: id_amandemen, id_kontrak, nomor_urut, no_amandemen, tanggal_amandemen, jenis_amandemen,
   nilai_kontrak_baru, durasi_amandemen, tanggal_mulai_baru, tanggal_selesai_baru, alasan_perubahan,
-  created_at, updated_at
+  amendment_documents (JSON), created_at, updated_at
 
 TABEL: tagihan
 Kolom: id_tagihan, id_kontrak, nomor_tagihan, tanggal_tagihan, tipe_kontrak, termin, nilai_tagihan,
-  status_tagihan, memo_required, tanggal_pengiriman_memo, catatan, created_at, updated_at
+  status_tagihan, memo_required, tanggal_pengiriman_memo, dokumen_memo, dokumen_tagihan, catatan, created_at, updated_at
+
+TABEL: sla_tagihan
+Kolom: id, id_kontrak, id_tagihan,
+  tgl_masuk_ba_joint_inspection, tgl_selesai_ba_joint_inspection,
+  tgl_masuk_ba_commissioning, tgl_selesai_ba_commissioning,
+  tgl_masuk_ba_penerimaan_material, tgl_selesai_ba_penerimaan_material,
+  tgl_masuk_lkp, tgl_selesai_lkp,
+  tgl_masuk_bast, tgl_selesai_bast,
+  tgl_masuk_bakp, tgl_selesai_bakp,
+  tgl_masuk_ivendor, tgl_selesai_ivendor,
+  tgl_masuk_sa, tgl_selesai_sa,
+  tgl_masuk_pa, tgl_selesai_pa,
+  tgl_masuk_verifikasi, tgl_selesai_verifikasi,
+  tgl_masuk_payment, tgl_selesai_payment,
+  created_at, updated_at
+Catatan: Tracking tanggal masuk & selesai per tahap untuk satu tagihan.
+
+TABEL: sla_setting
+Kolom: kode_tahap, batas_hari, warning_persen
+Catatan: Konfigurasi batas hari dan ambang peringatan (%) per tahap SLA tagihan.
 
 TABEL: progress_lumpsum
-Kolom: id_progress, id_kontrak, milestone, persen, tanggal_update, created_at
+Kolom: id_progress, id_kontrak, milestone, persen, tanggal_update, evidence, created_at
 
 TABEL: progress_unit_price
 Kolom: id_progress, id_kontrak, nama_item, satuan, qty_rencana, qty_aktual, harga_satuan, tanggal_update, created_at
@@ -71,23 +104,28 @@ Kolom: id_log, id_kontrak, tanggal_kunjungan, jenis_layanan (Preventive/Correcti
 
 TABEL: padi
 Kolom: id_padi, no_pembelian, tanggal, judul_pembelian, no_po_pr, nilai, id_vendor, link_pembelian,
-  bagian, status_purchase (BAST), tanggal_bast, tanggal_sa_gr, tanggal_invoice,
+  bagian, dokumen_pendukung, status_purchase (BAST), tanggal_bast, tanggal_sa_gr, tanggal_invoice,
   tanggal_payment_approval, tanggal_paid, catatan_status, created_at, updated_at
 
 TABEL: dokumen_approval
 Kolom: id_dokumen, id_kontrak, tipe_dokumen (Evident/Report/Persetujuan), nama_dokumen,
-  deskripsi_dokumen, status_approval (Pending/Approved/Rejected), catatan_reviewer,
+  deskripsi_dokumen, file_path, file_url, nama_file, tipe_file, ukuran_file,
+  status_approval (Pending/Approved/Rejected), catatan_reviewer,
   uploaded_by, reviewed_by, reviewed_at, created_at, updated_at
 
 TABEL: daily_report
-Kolom: id_report, tanggal_laporan, disiplin (Electrical/Instrument/Rotating/Stationary/Alat Berat),
-  direksi (MA5/MA6/MA7/Workshop), kategori (Corrective Maintenance/Preventive Maintenance/Plant Patrol/Progress/Challenge Session),
-  tag_number, deskripsi, status_pekerjaan (Done/In Progress/Waiting Material/Pending/-),
-  catatan, pengirim_wa, raw_text, created_at
+Kolom: id_report, tanggal_laporan, disiplin, kategori, deskripsi, direksi, tag_number,
+  status_pekerjaan, catatan, pengirim_wa, raw_text, created_at
+Catatan: Laporan harian kegiatan maintenance. Diisi via fitur #laporan.
+
+TABEL: konfigurasi_sistem
+Kolom: id_setting, nama_setting, nilai_setting, deskripsi, updated_at
 
 Relasi penting:
 - vendor.id_vendor -> kontrak.id_vendor (1 vendor banyak kontrak)
 - kontrak.id_kontrak -> tagihan.id_kontrak
+- kontrak.id_kontrak -> sla_tagihan.id_kontrak
+- tagihan.id_tagihan -> sla_tagihan.id_tagihan
 - kontrak.id_kontrak -> amandemen_kontrak.id_kontrak
 - kontrak.id_kontrak -> progress_lumpsum.id_kontrak
 - kontrak.id_kontrak -> progress_unit_price.id_kontrak
@@ -98,15 +136,41 @@ Relasi penting:
 NILAI ENUM & PILIHAN YANG VALID:
 
 1. TIPE KONTRAK: 'Lumpsum', 'Unit Price', 'TSA', 'LTSA', 'TSA/LTSA'
-2. STATUS KONTRAK: 'Pre-KOM', 'Aktif', 'Selesai', 'Terminated'
-3. DISIPLIN: 'Instrumentasi', 'Stationary', 'Electrical', 'Rotating', 'Alat Berat'
-4. DIREKSI PEKERJAAN: 'MA5', 'MA6', 'MA7', 'Workshop'
+
+2. STATUS KONTRAK: 'Pre-KOM', 'Aktif', 'Active', 'Selesai', 'Completed', 'Terminated'
+   PENTING: 'Aktif' dan 'Active' adalah sinonim — gunakan OR saat filter status aktif.
+   Begitu pula 'Selesai' dan 'Completed'. Contoh: WHERE status_kontrak IN ('Aktif', 'Active')
+
+3. DISIPLIN: 'Instrument', 'Instrumentasi', 'Stationary', 'Electrical', 'Rotating', 'Alat Berat'
+   PENTING: 'Instrument' dan 'Instrumentasi' adalah nilai yang sama — gunakan ILIKE '%instru%' atau OR.
+
+4. DIREKSI PEKERJAAN: Field kontrak.direksi_pekerjaan berisi NAMA ORANG/JABATAN (bukan kode MA5/MA6).
+   Untuk filter berdasarkan area, JOIN ke tabel direksi_pekerjaan dan filter kolom sub_area.
+   Sub_area valid: 'SH Maintenance Area 5', 'SH Maintenance Area 6', 'SH Maintenance Area 7', 'Workshop'
+
 5. JENIS AMANDEMEN: 'Nilai', 'Waktu', 'Nilai dan Waktu'
+
 6. STATUS APPROVAL: 'Pending', 'Approved', 'Rejected'
+
 7. STATUS VENDOR: 'Active', 'Inactive', 'Blacklist'
+
 8. JENIS LAYANAN LTSA: 'Preventive', 'Corrective', 'Standby'
-9. STATUS TAGIHAN (urutan tahapan):
-   LKP -> Punchlist -> BAST -> BAKP/BAPP -> Submit i-Vendor -> SA -> PA -> Verification -> Payment/Selesai
+
+9. TAHAPAN SLA TAGIHAN — 11 tahap (kolom di tabel sla_tagihan, format: tgl_masuk_X / tgl_selesai_X):
+   1. ba_joint_inspection     2. ba_commissioning        3. ba_penerimaan_material
+   4. lkp                     5. bast                    6. bakp
+   7. ivendor                 8. sa                      9. pa
+   10. verifikasi             11. payment
+   Tahap dianggap selesai jika tgl_selesai_X tidak NULL. Durasi = tgl_selesai - tgl_masuk.
+
+10. KATEGORI DAILY REPORT: 'Corrective Maintenance', 'Preventive Maintenance', 'Plant Patrol',
+    'Progress', 'Challenge Session', 'Support'
+
+11. STATUS PEKERJAAN (daily_report): 'Done', 'In Progress', 'Waiting Material', 'Pending', '-'
+
+12. PROGRAM KERJA: 'Rutin', 'Non Rutin', 'TA', 'OH'
+
+13. PLANNER: 'P&S', 'OH', 'TA'
 """
 
 # ─── 4. SYSTEM PROMPT ─────────────────────────────────────────────────────────
@@ -122,8 +186,17 @@ BASE_SYSTEM_PROMPT = (
     "3. Selalu gunakan LIMIT maksimal 50 baris\n"
     "4. Gunakan JOIN yang tepat antar tabel\n"
     "5. Format angka nilai kontrak dalam format Indonesia (Rp)\n"
+    "\n⚠️ ATURAN KRITIS — WAJIB QUERY DATABASE, JANGAN JAWAB DARI INGATAN:\n"
+    "SETIAP pertanyaan yang menyebut data spesifik (tanggal, nilai, status, progress, nama, jumlah)\n"
+    "WAJIB menggunakan type='query' dan SQL — TIDAK BOLEH dijawab dari ingatan atau estimasi.\n"
+    "Ini berlaku meskipun konteks entitas sudah diinjeksi. Konteks entitas HANYA boleh dipakai\n"
+    "untuk mendapatkan ID (id_kontrak, id_vendor, dll) yang dimasukkan ke WHERE clause SQL.\n"
+    "JANGAN PERNAH jadikan nilai dari konteks entitas (status, tanggal, nilai) sebagai jawaban final.\n"
+    "type='narrative' HANYA boleh dipakai untuk:\n"
+    "- Sapaan, Ucapan terima kasih, Pertanyaan tentang kemampuan AI\n"
+    "Semua pertanyaan lain → type='query'.\n"
     "\nATURAN INTERPRETASI ENTITAS:\n"
-    "- Jika ada blok 'KONTEKS ENTITAS YANG DITEMUKAN DI DATABASE' -> gunakan langsung, JANGAN minta klarifikasi\n"
+    "- Jika ada blok 'KONTEKS ENTITAS YANG DITEMUKAN DI DATABASE' -> gunakan ID-nya untuk WHERE clause SQL\n"
     "- Jika user menyebut nama yang diawali PT/CV/UD -> cari di vendor.nama_vendor\n"
     "- Jika user menyebut kode seperti MA5, KOM-001 -> cari di direksi_pekerjaan atau no_dokumen_kontrak\n"
     "- Jika entitas tidak ditemukan di konteks -> baru boleh minta klarifikasi\n"
@@ -183,7 +256,11 @@ def smart_entity_search(user_message: str) -> str:
         company_patterns = re.findall(
             r'\b(?:PT|CV|UD|TB|PD)\s+[\w\s]+', user_message, re.IGNORECASE
         )
-        search_terms = list(set(words + company_patterns))
+        tag_patterns = re.findall(
+            r'\b\d{2,3}-[A-Z]{1,3}-\d{3,}\b|\b\d{3}[A-Z]\d{3,}\b',
+            user_message, re.IGNORECASE
+        )
+        search_terms = list(set(words + company_patterns + tag_patterns))
 
         for term in search_terms:
             term = term.strip()
@@ -260,6 +337,39 @@ def smart_entity_search(user_message: str) -> str:
                     context.append(
                         f"[PADI] '{p[2]}' -> id_padi={p[0]}, "
                         f"no_pembelian={p[1]}, nilai={p[3]}, vendor='{p[4]}'"
+                    )
+
+            cur.execute("""
+                SELECT id_direksi_pekerjaan, nama, jabatan, sub_area
+                FROM direksi_pekerjaan
+                WHERE nama    ILIKE %s OR jabatan ILIKE %s OR sub_area ILIKE %s
+                LIMIT 3
+            """, (f'%{term}%', f'%{term}%', f'%{term}%'))
+            for d in cur.fetchall():
+                key = f"direksi_{d[0]}"
+                if key not in found_ids:
+                    found_ids.add(key)
+                    context.append(
+                        f"[DIREKSI] '{d[1]}' -> id_direksi_pekerjaan={d[0]}, "
+                        f"jabatan={d[2]}, sub_area={d[3]}"
+                    )
+
+            cur.execute("""
+                SELECT dr.id_report, dr.tag_number, dr.deskripsi,
+                       dr.tanggal_laporan, dr.disiplin, dr.status_pekerjaan
+                FROM daily_report dr
+                WHERE dr.tag_number ILIKE %s OR dr.deskripsi ILIKE %s
+                ORDER BY dr.tanggal_laporan DESC
+                LIMIT 3
+            """, (f'%{term}%', f'%{term}%'))
+            for r in cur.fetchall():
+                key = f"report_{r[0]}"
+                if key not in found_ids:
+                    found_ids.add(key)
+                    context.append(
+                        f"[DAILY REPORT] tag={r[1]} -> id_report={r[0]}, "
+                        f"tanggal={r[3]}, disiplin={r[4]}, "
+                        f"status={r[5]}, deskripsi='{str(r[2])[:80]}'"
                     )
 
         conn.close()
@@ -473,6 +583,62 @@ def is_junk_entry(item: dict) -> bool:
     return False
 
 
+_direksi_patterns_cache: dict = {}
+
+
+def _build_area_patterns(num: str, normalized: str) -> dict:
+    return {
+        rf'\bMA\s*{num}\b':                    normalized,
+        rf'[Mm]aintenance\s+[Aa]rea\s*{num}':  normalized,
+        rf'[Aa]rea\s*{num}\b':                 normalized,
+        rf'[Bb]agian\s*{num}\b':               normalized,
+    }
+
+
+def get_direksi_patterns() -> dict:
+    global _direksi_patterns_cache
+    if _direksi_patterns_cache:
+        return _direksi_patterns_cache
+    fallback: dict = {r'\bWorkshop\b': "Workshop"}
+    for n in ["5", "6", "7"]:
+        fallback.update(_build_area_patterns(n, f"MA{n}"))
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur  = conn.cursor()
+        cur.execute(
+            "SELECT DISTINCT direksi FROM daily_report "
+            "WHERE direksi IS NOT NULL AND direksi <> '' ORDER BY direksi"
+        )
+        known = [r[0].strip() for r in cur.fetchall()]
+        cur.execute(
+            "SELECT DISTINCT sub_area FROM direksi_pekerjaan "
+            "WHERE sub_area IS NOT NULL AND sub_area <> ''"
+        )
+        sub_areas = [r[0].strip() for r in cur.fetchall()]
+        conn.close()
+        patterns: dict = {}
+        for val in known:
+            m = re.match(r'^MA\s*(\d+)', val, re.IGNORECASE)
+            if m:
+                patterns.update(_build_area_patterns(m.group(1), f"MA{m.group(1)}"))
+            elif val.lower() == "workshop":
+                patterns[r'\bWorkshop\b'] = "Workshop"
+            elif val:
+                patterns[rf'\b{re.escape(val)}\b'] = val
+        for sub in sub_areas:
+            m = re.search(r'[Aa]rea\s*(\d+)', sub)
+            if m:
+                patterns.update(_build_area_patterns(m.group(1), f"MA{m.group(1)}"))
+            elif re.search(r'\bWorkshop\b', sub, re.IGNORECASE):
+                patterns[r'\bWorkshop\b'] = "Workshop"
+        _direksi_patterns_cache = patterns if patterns else fallback
+        return _direksi_patterns_cache
+    except Exception as e:
+        print(f"[DIREKSI PATTERNS ERROR] {e}")
+        _direksi_patterns_cache = fallback
+        return _direksi_patterns_cache
+
+
 def extract_laporan_header(raw_text: str) -> dict:
     """
     Ekstrak header laporan (tanggal, semua disiplin, direksi) secara regex
@@ -510,14 +676,7 @@ def extract_laporan_header(raw_text: str) -> dict:
             header["disiplin"].append("Instrument")
 
     # ── Direksi / Area ─────────────────────────────────────────────────────────
-    DIREKSI_MAP = {
-        r'\bMA\s*7\b': "MA7", r'\bMA\s*6\b': "MA6", r'\bMA\s*5\b': "MA5",
-        r'[Mm]aintenance\s+[Aa]rea\s*7': "MA7",
-        r'[Mm]aintenance\s+[Aa]rea\s*6': "MA6",
-        r'[Mm]aintenance\s+[Aa]rea\s*5': "MA5",
-        r'\bWorkshop\b': "Workshop",
-    }
-    for pattern, val in DIREKSI_MAP.items():
+    for pattern, val in get_direksi_patterns().items():
         if re.search(pattern, raw_text):
             header["direksi"] = val
             break
@@ -725,14 +884,7 @@ def insert_daily_report(items: list, pengirim: str, raw_text: str) -> tuple:
 
     # Fallback direksi dari raw_text kalau item tidak punya
     fallback_direksi = ""
-    DIREKSI_MAP_FB = {
-        r'\bMA\s*7\b': "MA7", r'\bMA\s*6\b': "MA6", r'\bMA\s*5\b': "MA5",
-        r'[Mm]aintenance\s+[Aa]rea\s*7': "MA7",
-        r'[Mm]aintenance\s+[Aa]rea\s*6': "MA6",
-        r'[Mm]aintenance\s+[Aa]rea\s*5': "MA5",
-        r'\bWorkshop\b': "Workshop",
-    }
-    for pat, val in DIREKSI_MAP_FB.items():
+    for pat, val in get_direksi_patterns().items():
         if re.search(pat, raw_text):
             fallback_direksi = val
             break
@@ -890,6 +1042,18 @@ def run_query(question: str, user_id: int) -> str:
 
         if response_type == "narrative":
             answer = parsed.get("message", raw)
+            DATA_KEYWORDS = {
+                'tanggal', 'nilai', 'progress', 'status', 'berapa', 'kapan',
+                'siapa', 'kontrak', 'tagihan', 'vendor', 'amandemen', 'selesai',
+                'mulai', 'durasi', 'harga', 'bayar', 'laporan', 'sla'
+            }
+            question_words = set(re.findall(r'\b\w+\b', question.lower()))
+            if question_words & DATA_KEYWORDS:
+                answer += (
+                    "\n\n⚠️ _Jawaban di atas belum diverifikasi dari database. "
+                    "Tanyakan lebih spesifik (misalnya sebut nama kontrak atau vendor) "
+                    "agar saya bisa mengambil data yang akurat._"
+                )
             add_history(user_id, question, answer)
             return answer
 
