@@ -509,8 +509,22 @@ def clear_history(user_id: int):
 
 LAPORAN_SYSTEM_PROMPT = (
     "Kamu adalah parser laporan harian maintenance kilang minyak.\n"
-    "Tugasmu mengekstrak data dari teks laporan narasi ke dalam format JSON terstruktur.\n\n"
+    "Tugasmu mengekstrak data dari teks laporan ke dalam format JSON terstruktur.\n"
+    "Laporan bisa berformat:\n"
+    "  (a) FIELD REPORT: disiplin ada di header, item berformat 'tag: deskripsi (status)'\n"
+    "  (b) WORKSHOP REPORT: diorganisir per section A/B/C..., disiplin dari nama section\n"
+    "Kenali formatnya otomatis dan sesuaikan cara parse.\n\n"
+
     "DISIPLIN YANG VALID: Electrical, Instrument, Rotating, Stationary, Alat Berat\n\n"
+
+    "MAPPING SECTION → DISIPLIN (format Workshop):\n"
+    "  POMPA / Bubut Bundle / Bubut / VALVE / Valve / Las Kontruksi / Las Konstruksi → Rotating\n"
+    "  INSTRUMENT / Instrument → Instrument\n"
+    "  ELECTRICAL / Electrical → Electrical\n"
+    "  ALAT BERAT → Alat Berat\n"
+    "  TOOLS / TOOL / Peminjaman / Pengembalian → SKIP, jangan buat entri JSON\n"
+    "  Sub-section (AC Central, Service By SWTS, dll) → ikuti disiplin section induknya\n\n"
+
     "KATEGORI YANG VALID:\n"
     "- Corrective Maintenance\n"
     "- Preventive Maintenance\n"
@@ -518,46 +532,59 @@ LAPORAN_SYSTEM_PROMPT = (
     "- Progress\n"
     "- Challenge Session\n"
     "- Support\n\n"
+
     "STATUS YANG VALID: Done, In Progress, Waiting Material, Pending, -\n"
-    "MAPPING STATUS (terapkan tepat seperti ini):\n"
-    "  (done), DONE, Done, selesai → Done\n"
-    "  (ip), (in progress), In Progress, in progress, sedang dikerjakan → In Progress\n"
-    "  waiting material, wm → Waiting Material\n"
-    "  pending → Pending\n"
-    "  Jika tidak ada keterangan status → -\n\n"
-    "DIREKSI (area kerja) YANG VALID: MA5, MA6, MA7, Workshop\n"
-    "Normalisasi: 'Maintenance Area 7' / 'Area 7' / 'MA 7' / 'Bagian 7' → 'MA7'\n"
-    "             'Maintenance Area 5' / 'Area 5' / 'MA 5' / 'Bagian 5' → 'MA5'\n"
-    "             'Maintenance Area 6' / 'Area 6' / 'MA 6' / 'Bagian 6' → 'MA6'\n"
-    "             'Workshop' → 'Workshop'\n"
-    "Jika tidak ada informasi direksi, gunakan string kosong.\n\n"
-    "TAG NUMBER: Kode identifikasi equipment/alat yang biasanya ada di awal deskripsi item,\n"
-    "dipisah dengan titik dua (:) atau spasi. Contoh: 101-P-105, 104-P-107, 101A514, 105-FV-020.\n"
-    "Format umum: [area]-[tipe]-[nomor] atau [area][kode][nomor].\n"
-    "Jika tidak ada tag number, gunakan string kosong.\n\n"
+    "MAPPING STATUS — dari inline keterangan ATAU sub-header di atasnya:\n"
+    "  Sub-header *Masuk* → In Progress\n"
+    "  Sub-header *inprogress* / *In Progress* → In Progress\n"
+    "  Sub-header *Selesai* / *Motor Selesai* → Done\n"
+    "  Sub-header *Motor Antri Overhaul* → Pending\n"
+    "  Sub-header *Motor Masuk workshop* / *Motor Service Progress* → In Progress\n"
+    "  Sub-header *Service By SWTS* → ikuti status inline item\n"
+    "  Inline: (done), DONE, selesai, Selesai → Done\n"
+    "  Inline: (ip), i/p, I/P, in progress, inprogress, sedang dikerjakan → In Progress\n"
+    "  Inline: waiting material, wm → Waiting Material\n"
+    "  Inline: waiting, menunggu, hold, rekom → Pending\n"
+    "  Inline: pending → Pending\n"
+    "  Tidak ada keterangan → -\n\n"
+
+    "TANGGAL SELESAI DALAM KURUNG:\n"
+    "  '84V230P1B (2/8/2026)' → tag_number='84V230P1B', status='Done', catatan='selesai 2/8/2026'\n\n"
+
+    "DIREKSI:\n"
+    "  Jika judul/header laporan menyebut 'Workshop' → 'Workshop'\n"
+    "  'Maintenance Area 7' / 'Area 7' / 'MA 7' / 'Bagian 7' → 'MA7'\n"
+    "  'Maintenance Area 5' / 'Area 5' / 'MA 5' / 'Bagian 5' → 'MA5'\n"
+    "  'Maintenance Area 6' / 'Area 6' / 'MA 6' / 'Bagian 6' → 'MA6'\n"
+    "  Tidak ada info direksi → string kosong\n\n"
+
+    "TAG NUMBER: Kode equipment. Format: [area]-[tipe]-[nomor] (156-UV-704B, 101-P-105)\n"
+    "atau [area][kode][nomor] (14P4, 24K2P1AT, 104TG671). Jika tidak ada → string kosong.\n\n"
+
+    "DESKRIPSI: Aktivitas setelah tag number. Jika item hanya berisi tag number tanpa\n"
+    "keterangan aktivitas, biarkan deskripsi string kosong — tag number sudah cukup.\n\n"
+
     "ATURAN EKSTRAKSI:\n"
     "1. Satu item pekerjaan = satu entri JSON\n"
-    "2. Deteksi tanggal dari teks laporan (format DD/MM/YYYY, DD Bulan YYYY, dsb)\n"
-    "3. Deteksi disiplin dari header laporan\n"
-    "4. Deteksi direksi dari header laporan, normalisasi ke MA5/MA6/MA7/Workshop\n"
-    "5. Petakan setiap item ke kategori yang sesuai\n"
-    "6. Ekstrak status menggunakan MAPPING STATUS di atas\n"
-    "7. Ekstrak tag number dari awal deskripsi item jika ada\n"
-    "8. Deskripsi diisi tanpa tag number (tag number sudah dipisah di field tag_number)\n"
-    "9. Catatan: info tambahan yang relevan (target tanggal, detail teknis, dll)\n\n"
-    "ATURAN MULTI-TAG (penting):\n"
-    "Jika satu baris menyebut beberapa tag sekaligus, buat SATU entri per tag.\n"
-    "Contoh: 'Perbaikan fireproofing: 105-P-506, 105-P-508, 105-P-507 (in progress)'\n"
-    "→ 3 entri terpisah, masing-masing dengan tag berbeda, deskripsi & status sama.\n\n"
-    "ATURAN ABAIKAN BARIS BERIKUT (jangan buat entri JSON):\n"
-    "- Baris template/placeholder, contoh: 'Tag Number/Equipment/Func. Loc: Aktifitas (status)', '...', '..'\n"
-    "- Baris sub-header equipment, contoh: '* Equipment : Transmitter', '* Equipment : Junction Box'\n"
-    "- Baris kosong atau hanya berisi tanda baca\n\n"
-    "RESPONSE FORMAT — kembalikan HANYA array JSON, tanpa teks lain:\n"
-    '[\n  {\n    "tanggal_laporan": "2026-05-26",\n    "disiplin": "Instrument",\n'
-    '    "direksi": "MA7",\n    "kategori": "Plant Patrol",\n    "tag_number": "105-FV-020",\n'
-    '    "deskripsi": "Plant Patrol control valve",\n'
-    '    "status_pekerjaan": "Done",\n    "catatan": ""\n  }\n]\n\n'
+    "2. Deteksi tanggal laporan dari judul/header dokumen\n"
+    "3. Tentukan disiplin dari section header atau header laporan\n"
+    "4. Status diambil dari keterangan inline; jika tidak ada, dari sub-header terdekat di atasnya\n"
+    "5. Sub-header status berlaku untuk semua item di bawahnya sampai sub-header berikutnya\n"
+    "6. Petakan ke kategori yang sesuai (default Corrective Maintenance jika tidak jelas)\n"
+    "7. Multi-tag: 1 baris dengan beberapa tag → buat entri terpisah per tag\n"
+    "8. Catatan: tanggal selesai, keterangan menunggu, detail teknis\n\n"
+
+    "ABAIKAN (jangan buat entri JSON):\n"
+    "- Section TOOLS / Peminjaman / Pengembalian alat\n"
+    "- Baris template: 'Tag Number/Equipment/Func. Loc: Aktifitas (status)', '...'\n"
+    "- Sub-header equipment: '* Equipment : Transmitter'\n"
+    "- Baris kosong atau hanya tanda baca\n\n"
+
+    "RESPONSE FORMAT — HANYA array JSON, tanpa teks lain:\n"
+    '[\n  {\n    "tanggal_laporan": "2026-08-13",\n    "disiplin": "Rotating",\n'
+    '    "direksi": "Workshop",\n    "kategori": "Corrective Maintenance",\n'
+    '    "tag_number": "14P4",\n    "deskripsi": "",\n'
+    '    "status_pekerjaan": "In Progress",\n    "catatan": ""\n  }\n]\n\n'
     "PENTING: Kembalikan HANYA array JSON yang valid. Jangan tambahkan penjelasan apapun."
 )
 
@@ -899,7 +926,7 @@ def insert_daily_report(items: list, pengirim: str, raw_text: str) -> tuple:
         saved_items  = []
 
         for item in items:
-            if not item.get("tanggal_laporan") or not item.get("disiplin") or not item.get("deskripsi"):
+            if not item.get("tanggal_laporan") or not item.get("disiplin") or (not item.get("tag_number") and not item.get("deskripsi")):
                 skipped += 1
                 continue
 
