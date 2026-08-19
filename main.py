@@ -955,8 +955,8 @@ def insert_daily_report(items: list, pengirim: str, raw_text: str) -> tuple:
             cur.execute("""
                 INSERT INTO daily_report
                     (id_report, tanggal_laporan, disiplin, direksi, kategori, tag_number, deskripsi,
-                     status_pekerjaan, catatan, pengirim_wa, raw_text)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                     status_pekerjaan, catatan, pengirim_wa, raw_text, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
             """, (
                 str(uuid.uuid4()),
                 item.get("tanggal_laporan"),
