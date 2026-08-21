@@ -541,7 +541,10 @@ LAPORAN_SYSTEM_PROMPT = (
     "- Challenge Session\n"
     "- Support\n"
     "- Service by WS\n"
-    "- Service by Kontraktor\n\n"
+    "- Service by Kontraktor\n"
+    "- Overhaul\n"
+    "- Peminjaman\n"
+    "- Pengembalian\n\n"
 
     "STATUS YANG VALID: Done, In Progress, Waiting Material, Pending, -\n"
     "MAPPING STATUS — dari inline keterangan ATAU sub-header di atasnya:\n"
