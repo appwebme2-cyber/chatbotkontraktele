@@ -118,6 +118,13 @@ TABEL: daily_report
 Kolom: id_report, tanggal_laporan, disiplin, kategori, deskripsi, direksi, tag_number,
   status_pekerjaan, catatan, pengirim_wa, raw_text, created_at
 Catatan: Laporan harian kegiatan maintenance. Diisi via fitur #laporan.
+  Nilai disiplin: 'Rotating', 'Electrical', 'Instrument', 'Stationary', 'Alat Berat'
+  Mapping nama section workshop → disiplin (gunakan ini saat user tanya pakai nama section):
+    Pompa / Bubut / Valve / Las Konstruksi / AC Central / Motor / Kompresor → 'Rotating'
+    Instrument → 'Instrument'
+    Electrical → 'Electrical'
+    Alat Berat → 'Alat Berat'
+  Nilai direksi: 'MA5', 'MA6', 'MA7', 'Workshop' (string kosong jika tidak ada info)
 
 TABEL: konfigurasi_sistem
 Kolom: id_setting, nama_setting, nilai_setting, deskripsi, updated_at
@@ -518,12 +525,13 @@ LAPORAN_SYSTEM_PROMPT = (
     "DISIPLIN YANG VALID: Electrical, Instrument, Rotating, Stationary, Alat Berat\n\n"
 
     "MAPPING SECTION → DISIPLIN (format Workshop):\n"
-    "  POMPA / Bubut Bundle / Bubut / VALVE / Valve / Las Kontruksi / Las Konstruksi → Rotating\n"
+    "  POMPA / Pompa / Bubut Bundle / Bubut / VALVE / Valve / Las Kontruksi / Las Konstruksi → Rotating\n"
+    "  AC Central / AC CENTRAL / Motor / MOTOR / Kompresor / KOMPRESOR → Rotating\n"
     "  INSTRUMENT / Instrument → Instrument\n"
     "  ELECTRICAL / Electrical → Electrical\n"
-    "  ALAT BERAT → Alat Berat\n"
+    "  ALAT BERAT / Alat Berat → Alat Berat\n"
     "  TOOLS / TOOL / Peminjaman / Pengembalian → SKIP, jangan buat entri JSON\n"
-    "  Sub-section (AC Central, Service By SWTS, dll) → ikuti disiplin section induknya\n\n"
+    "  Sub-section (Service By SWTS, dll) → ikuti disiplin section induknya\n\n"
 
     "KATEGORI YANG VALID:\n"
     "- Corrective Maintenance\n"
