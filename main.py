@@ -539,7 +539,9 @@ LAPORAN_SYSTEM_PROMPT = (
     "- Plant Patrol\n"
     "- Progress\n"
     "- Challenge Session\n"
-    "- Support\n\n"
+    "- Support\n"
+    "- Service by WS\n"
+    "- Service by Kontraktor\n\n"
 
     "STATUS YANG VALID: Done, In Progress, Waiting Material, Pending, -\n"
     "MAPPING STATUS — dari inline keterangan ATAU sub-header di atasnya:\n"
