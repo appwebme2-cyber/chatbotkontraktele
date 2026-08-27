@@ -546,7 +546,7 @@ LAPORAN_SYSTEM_PROMPT = (
     "- Peminjaman\n"
     "- Pengembalian\n\n"
 
-    "STATUS YANG VALID: Done, In Progress, Waiting Material, Pending, -\n"
+    "STATUS YANG VALID: Done, In Progress, Waiting Material, Waiting Recommendation, Pending, -\n"
     "MAPPING STATUS — dari inline keterangan ATAU sub-header di atasnya:\n"
     "  Sub-header *Masuk* → In Progress\n"
     "  Sub-header *inprogress* / *In Progress* → In Progress\n"
@@ -557,7 +557,8 @@ LAPORAN_SYSTEM_PROMPT = (
     "  Inline: (done), DONE, selesai, Selesai → Done\n"
     "  Inline: (ip), i/p, I/P, in progress, inprogress, sedang dikerjakan → In Progress\n"
     "  Inline: waiting material, wm → Waiting Material\n"
-    "  Inline: waiting, menunggu, hold, rekom → Pending\n"
+    "  Inline: waiting recommendation, waiting rekom, w/rekom, rekom → Waiting Recommendation\n"
+    "  Inline: waiting, menunggu, hold → Pending\n"
     "  Inline: pending → Pending\n"
     "  Tidak ada keterangan → -\n\n"
 
